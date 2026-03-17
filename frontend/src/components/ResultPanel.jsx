@@ -120,7 +120,7 @@ function AnalysisCard({ analysis, version, total, projectName, projectCode }) {
             <ol className="acard-slides-list">
               {titles.map((t, i) => (
                 <li key={i} className="acard-slide-item">
-                  <span className="acard-slide-num">{i + 1}</span>
+                  <span className="acard-slide-num">Slide {i + 1}</span>
                   <span className="acard-slide-title">{t}</span>
                 </li>
               ))}

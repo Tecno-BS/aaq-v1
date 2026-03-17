@@ -1185,10 +1185,10 @@ input[type="file"].file-input { display: none; }
 .acard-slide-num {
   flex-shrink: 0;
   font-weight: 700;
-  font-size: 9px;
+  font-size: 9.5px;
   color: var(--bs-orange);
-  min-width: 14px;
-  text-align: right;
+  min-width: 52px;
+  white-space: nowrap;
 }
 
 .acard-slide-title {

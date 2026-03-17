@@ -111,9 +111,10 @@ def build_user_text(
             f"{slides_list}"
         )
 
-    # Instrucción de salida ajustada para usar nombres de slides
+    # Instrucción de salida ajustada para usar "Slide N — Título"
     slide_ref = (
-        "el TÍTULO EXACTO de la diapositiva según el índice anterior (no 'Slide N')"
+        "el formato 'Slide N — [título]' según el índice anterior "
+        "(ej: 'Slide 1 — Metodología'). Usa siempre número Y nombre."
         if slide_titles
         else "'Slide 1', 'Slide 2', etc. en el mismo orden de las imágenes"
     )
