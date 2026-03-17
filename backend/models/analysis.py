@@ -8,6 +8,7 @@ class Analysis(Document):
     answers : Dict[str, str]
     has_previous_study : Optional[str] = None
     slide_paths: List[str] = []
+    slide_titles: List[str] = []
     context_image_paths: List[str] = []
     pdf_path: Optional[str] = None
     output_text: str = ""

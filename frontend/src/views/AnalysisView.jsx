@@ -132,6 +132,7 @@ export function AnalysisView({ project }) {
         answers: fullAnswers,
         hasPreviousStudy: fullAnswers.q10,
         slideCount: slideFiles.length,
+        slideTitles: data.slide_titles || [],
         contextImageCount: contextImages.length,
         hasPdf: hasPreviousStudy === "yes" && !!studyPdf,
         outputText: data.output_text || "",

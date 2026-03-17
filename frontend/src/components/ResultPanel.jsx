@@ -1,6 +1,7 @@
 import {
   Sparkles, ClipboardList, FileDown, Loader2,
   Calendar, Images, Paperclip, FileText, History,
+  ChevronDown, ChevronUp, LayoutList,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -16,6 +17,8 @@ function formatDate(iso) {
 // ─── Tarjeta de análisis individual ──────────────────────────────────────────
 function AnalysisCard({ analysis, version, total, projectName, projectCode }) {
   const [downloading, setDownloading] = useState(false);
+  const [showSlides, setShowSlides] = useState(false);
+  const titles = analysis.slideTitles || [];
 
   const handleDownload = async () => {
     if (downloading || !analysis.outputText) return;
@@ -96,6 +99,35 @@ function AnalysisCard({ analysis, version, total, projectName, projectCode }) {
           </span>
         )}
       </div>
+
+      {/* Lista de títulos de slides */}
+      {titles.length > 0 && (
+        <div className="acard-slides-section">
+          <button
+            type="button"
+            className="acard-slides-toggle"
+            onClick={() => setShowSlides((v) => !v)}
+          >
+            <LayoutList size={11} strokeWidth={2} />
+            <span>Diapositivas ({titles.length})</span>
+            {showSlides
+              ? <ChevronUp size={11} strokeWidth={2.5} />
+              : <ChevronDown size={11} strokeWidth={2.5} />
+            }
+          </button>
+
+          {showSlides && (
+            <ol className="acard-slides-list">
+              {titles.map((t, i) => (
+                <li key={i} className="acard-slide-item">
+                  <span className="acard-slide-num">{i + 1}</span>
+                  <span className="acard-slide-title">{t}</span>
+                </li>
+              ))}
+            </ol>
+          )}
+        </div>
+      )}
     </div>
   );
 }

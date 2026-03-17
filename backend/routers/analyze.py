@@ -9,7 +9,7 @@ from pypdf import PdfReader
 
 import config
 from models.analysis import Analysis as AnalysisDoc
-from services.openai_service import analyze_slides
+from services.openai_service import analyze_slides, extract_slide_titles
 
 router = APIRouter()
 
@@ -159,15 +159,22 @@ async def analyze(
 
     # 4. Construir bloques para el modelo (usa los bytes ya leídos)
     context_blocks = to_image_blocks(context_tuples)
-    slide_blocks = to_image_blocks(slide_tuples)
+    slide_blocks   = to_image_blocks(slide_tuples)
     all_image_blocks = context_blocks + slide_blocks
 
-    # 5. Llamar al modelo
+    # 5a. Extraer títulos de slides (llamada ligera previa al análisis principal)
+    try:
+        slide_titles = extract_slide_titles(slide_blocks)
+    except Exception:
+        slide_titles = [f"Slide {i + 1}" for i in range(len(slide_tuples))]
+
+    # 5b. Llamar al modelo principal con títulos como contexto adicional
     try:
         output_text = analyze_slides(
             contexto=contexto,
             image_blocks=all_image_blocks,
             pdf_text=pdf_text,
+            slide_titles=slide_titles,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al llamado del modelo: {e}")
@@ -178,10 +185,15 @@ async def analyze(
         answers=contexto,
         has_previous_study=contexto.get("q10", ""),
         slide_paths=slide_paths,
+        slide_titles=slide_titles,
         context_image_paths=context_paths,
         pdf_path=pdf_path,
         output_text=output_text,
     )
     await analysis_doc.insert()
 
-    return {"output_text": output_text, "analysis_id": str(analysis_doc.id)}
+    return {
+        "output_text": output_text,
+        "analysis_id": str(analysis_doc.id),
+        "slide_titles": slide_titles,
+    }

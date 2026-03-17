@@ -75,10 +75,11 @@ async def list_analyses(project_id: str):
             "answers": a.answers,
             "hasPreviousStudy": a.has_previous_study,
             "slideCount": len(a.slide_paths),
+            "slideTitles": a.slide_titles or [],
             "contextImageCount": len(a.context_image_paths),
             "hasPdf": a.pdf_path is not None,
             "outputText": a.output_text,
-            "createdAt": a.created_at.isoformat(),   
+            "createdAt": a.created_at.isoformat(),
         }
         for a in analyses
     ]
