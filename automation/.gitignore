@@ -1,0 +1,25 @@
+# ─── Entorno virtual ──────────────────────────────────────────────────────────
+venv/
+.venv/
+env/
+ENV/
+
+# ─── Caché de Python ──────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyc
+*.pyo
+
+# ─── Imágenes de prueba generadas automáticamente ─────────────────────────────
+assets/*.png
+assets/*.jpg
+assets/*.jpeg
+assets/*.webp
+
+# ─── Archivos de salida generados por los scripts ─────────────────────────────
+historial_aaq.csv
+*.csv
+
+# ─── Capturas de pantalla de Selenium ─────────────────────────────────────────
+screenshots/
+*.png

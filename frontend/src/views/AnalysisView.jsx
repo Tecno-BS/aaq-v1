@@ -197,7 +197,7 @@ export function AnalysisView({ project }) {
             </span>
             Imágenes
           </h2>
-          <button type="submit" className="btn-primary" disabled={!canSubmit}>
+          <button type="submit" className="btn-primary" disabled={!canSubmit} data-testid="btn-analizar">
             {loading
               ? <><span className="spinner" /> Analizando…</>
               : <><Zap size={14} strokeWidth={2.5} /> Analizar</>

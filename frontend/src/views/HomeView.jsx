@@ -89,7 +89,7 @@ export function HomeView({
             Selecciona un proyecto existente o crea uno nuevo para comenzar.
           </p>
         </div>
-        <button className="btn-primary" onClick={() => setShowModal(true)}>
+        <button className="btn-primary" onClick={() => setShowModal(true)} data-testid="btn-nuevo-proyecto">
           <Plus size={15} strokeWidth={2.5} />
           Nuevo proyecto
         </button>
@@ -115,6 +115,8 @@ export function HomeView({
               className="project-card"
               style={{ animationDelay: `${i * 0.05}s` }}
               onClick={() => onOpenProject(p)}
+              data-testid="project-card"
+              data-project-name={p.name}
             >
               <div className="project-card-top">
                 <div className="project-card-icon">
@@ -166,6 +168,7 @@ export function HomeView({
                 placeholder="Ej: Estudio salud de marca Q2 2026"
                 autoFocus
                 onKeyDown={(e) => e.key === "Enter" && handleCreate()}
+                data-testid="input-nombre-proyecto"
               />
             </div>
             <div className="modal-field">
@@ -176,6 +179,7 @@ export function HomeView({
                 onChange={(e) => setCode(e.target.value)}
                 placeholder="Ej: BS-2026-042"
                 onKeyDown={(e) => e.key === "Enter" && handleCreate()}
+                data-testid="input-codigo-proyecto"
               />
             </div>
             <div className="modal-actions">
@@ -186,6 +190,7 @@ export function HomeView({
                 className="btn-primary"
                 onClick={handleCreate}
                 disabled={!name.trim()}
+                data-testid="btn-crear-proyecto"
               >
                 <Plus size={14} strokeWidth={2.5} />
                 Crear proyecto

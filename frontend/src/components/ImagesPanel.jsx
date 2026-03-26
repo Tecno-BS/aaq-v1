@@ -58,7 +58,7 @@ function FileThumbs({ files, onRemove, onPreview }) {
 }
 
 /* ─── Drop Zone ───────────────────────────────────────────────────────────── */
-function DropZone({ label, meta, onChange, accept, icon: Icon = Upload }) {
+function DropZone({ label, meta, onChange, accept, icon: Icon = Upload, testId }) {
   return (
     <label className="file-drop">
       <input
@@ -67,6 +67,7 @@ function DropZone({ label, meta, onChange, accept, icon: Icon = Upload }) {
         accept={accept || "image/png,image/jpeg,image/webp"}
         multiple={accept === undefined}
         onChange={onChange}
+        data-testid={testId}
       />
       <div className="file-drop-inner">
         <div className="file-drop-icon">
@@ -139,6 +140,7 @@ export function ImagesPanel({
           meta={slideFiles.length > 0 ? slideInfo : "PNG, JPG o WebP · máx. 7 MB por imagen"}
           onChange={addSlideFiles}
           icon={Upload}
+          testId="input-slides"
         />
         {slideFiles.length > 0 && (
           <div className="thumb-count-badge">
@@ -161,6 +163,7 @@ export function ImagesPanel({
           meta={contextImages.length > 0 ? ctxInfo : "Imágenes adicionales de referencia"}
           onChange={addContext}
           icon={Paperclip}
+          testId="input-context"
         />
         {contextImages.length > 0 && (
           <div className="thumb-count-badge">

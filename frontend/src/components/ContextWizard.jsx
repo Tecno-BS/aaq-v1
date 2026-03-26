@@ -12,6 +12,7 @@ function Q10Toggle({ hasPreviousStudy, setHasPreviousStudy }) {
           type="button"
           className={`q10-option${hasPreviousStudy === "yes" ? " active" : ""}`}
           onClick={() => setHasPreviousStudy("yes")}
+          data-testid="q10-yes"
         >
           <CheckCircle2 size={14} strokeWidth={2.5} />
           Sí, tengo un estudio previo
@@ -20,6 +21,7 @@ function Q10Toggle({ hasPreviousStudy, setHasPreviousStudy }) {
           type="button"
           className={`q10-option${hasPreviousStudy === "no" ? " active" : ""}`}
           onClick={() => setHasPreviousStudy("no")}
+          data-testid="q10-no"
         >
           No aplica
         </button>
@@ -82,7 +84,7 @@ export function ContextWizard({
               className={`question-item${isFilled ? " is-filled" : ""}`}
               style={{ animationDelay: `${i * 0.03}s` }}
             >
-              <div className="question-item-header" onClick={() => toggle(q.id)}>
+              <div className="question-item-header" onClick={() => toggle(q.id)} data-testid={`question-header-${q.id}`}>
                 <div className="question-item-left">
                   <div className="question-num">{i}</div>
                   <span className="question-label">{q.title}</span>
@@ -119,6 +121,7 @@ export function ContextWizard({
                         }
                         placeholder={q.placeholder}
                         autoFocus
+                        data-testid={`textarea-${q.id}`}
                       />
                     </>
                   )}
