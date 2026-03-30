@@ -9,7 +9,7 @@ from pypdf import PdfReader
 
 import config
 from models.analysis import Analysis as AnalysisDoc
-from services.openai_service import analyze_slides, extract_slide_titles
+from services.analysis_graph import analysis_pipeline
 
 router = APIRouter()
 
@@ -30,10 +30,6 @@ async def read_images(
     files: List[UploadFile],
     prefix: str,
 ) -> List[Tuple[str, str, bytes]]:
-    """
-    Lee cada archivo UNA SOLA VEZ y devuelve lista de (filename, content_type, data).
-    Valida tipo MIME y tamaño.
-    """
     results = []
     for idx, f in enumerate(files, start=1):
         if f.content_type not in config.ALLOWED_MIME:
@@ -51,18 +47,7 @@ async def read_images(
     return results
 
 
-def to_image_blocks(
-    file_tuples: List[Tuple[str, str, bytes]],
-) -> List[Dict[str, Any]]:
-    """Convierte bytes ya leídos en bloques input_image para el modelo."""
-    return [
-        {"type": "input_image", "image_url": config.to_data_url(ct, data)}
-        for _, ct, data in file_tuples
-    ]
-
-
 async def read_pdf(pdf_file: UploadFile) -> Tuple[str, bytes]:
-    """Lee el PDF UNA SOLA VEZ. Devuelve (texto_extraído, bytes_raw)."""
     data = await pdf_file.read()
     if len(data) > MAX_PDF_BYTES:
         raise HTTPException(
@@ -71,8 +56,8 @@ async def read_pdf(pdf_file: UploadFile) -> Tuple[str, bytes]:
         )
     try:
         reader = PdfReader(io.BytesIO(data))
-        pages = [page.extract_text() or "" for page in reader.pages]
-        text = "\n\n".join(p.strip() for p in pages if p.strip())
+        pages  = [page.extract_text() or "" for page in reader.pages]
+        text   = "\n\n".join(p.strip() for p in pages if p.strip())
         return text or "(El PDF no contiene texto extraíble.)", data
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"No se pudo leer el PDF: {e}")
@@ -85,10 +70,6 @@ def save_files(
     pdf_filename: Optional[str],
     pdf_bytes: Optional[bytes],
 ) -> Tuple[List[str], List[str], Optional[str]]:
-    """
-    Guarda todos los archivos en disco.
-    Devuelve (slide_paths, context_paths, pdf_path) relativos a UPLOADS_DIR.
-    """
     analysis_dir.mkdir(parents=True, exist_ok=True)
 
     slide_paths = []
@@ -116,14 +97,29 @@ def save_files(
 
 @router.post("/analyze")
 async def analyze(
-    project_id: str = Form(...),
-    contexto_json: str = Form(...),
-    images: List[UploadFile] = File(...),
+    project_id:    str  = Form(...),
+    contexto_json: str  = Form(...),
+    provider:      str  = Form(None),        # "openai" | "gemini" | None → usa el default
+    openai_model:  str  = Form(None),        # "gpt-4.1" | "gpt-4o" | "gpt-5" | None → usa OPENAI_MODEL
+    gemini_model:  str  = Form(None),        # "gemini-2.5-pro" | "gemini-3-pro-preview" | None → usa GEMINI_MODEL
+    images:        List[UploadFile] = File(...),
     context_images: List[UploadFile] = File(None),
-    study_pdf: Optional[UploadFile] = File(None),
+    study_pdf:     Optional[UploadFile] = File(None),
 ):
-    if not config.OPENAI_API_KEY:
-        raise HTTPException(status_code=500, detail="Sin API KEY de OpenAI configurada.")
+    # Resolver proveedor activo
+    active_provider = (provider or config.ACTIVE_LLM_PROVIDER).lower().strip()
+
+    # Validar que las credenciales del proveedor estén disponibles
+    if active_provider == "gemini":
+        if not config.GOOGLE_CREDENTIALS_PATH or not config.VERTEX_AI_PROJECT:
+            raise HTTPException(
+                status_code=500,
+                detail="Credenciales de Gemini no configuradas. "
+                       "Revisa GOOGLE_APPLICATION_CREDENTIALS y VERTEX_AI_PROJECT en backend/.env",
+            )
+    else:
+        if not config.OPENAI_API_KEY:
+            raise HTTPException(status_code=500, detail="OPENAI_API_KEY no configurada en backend/.env")
 
     # 1. Parsear y validar contexto
     try:
@@ -139,45 +135,46 @@ async def analyze(
     if not images:
         raise HTTPException(status_code=400, detail="Debes adjuntar al menos 1 imagen de slides.")
 
-    # 2. Leer todos los archivos UNA SOLA VEZ
-    slide_tuples = await read_images(images, prefix="slide")
+    # 2. Leer todos los archivos
+    slide_tuples   = await read_images(images, prefix="slide")
     context_tuples = await read_images(context_images or [], prefix="contexto")
 
-    pdf_text: Optional[str] = None
-    pdf_bytes: Optional[bytes] = None
-    pdf_filename: Optional[str] = None
+    pdf_text:     Optional[str]   = None
+    pdf_bytes:    Optional[bytes] = None
+    pdf_filename: Optional[str]   = None
     if study_pdf and study_pdf.filename:
         pdf_text, pdf_bytes = await read_pdf(study_pdf)
         pdf_filename = study_pdf.filename
 
     # 3. Guardar archivos en disco
-    analysis_id = str(uuid.uuid4())
+    analysis_id  = str(uuid.uuid4())
     analysis_dir = UPLOADS_DIR / project_id / analysis_id
     slide_paths, context_paths, pdf_path = save_files(
         analysis_dir, slide_tuples, context_tuples, pdf_filename, pdf_bytes
     )
 
-    # 4. Construir bloques para el modelo (usa los bytes ya leídos)
-    context_blocks = to_image_blocks(context_tuples)
-    slide_blocks   = to_image_blocks(slide_tuples)
-    all_image_blocks = context_blocks + slide_blocks
+    # 4. Convertir imágenes a data URLs para el grafo
+    slide_data_urls   = [config.to_data_url(ct, d) for _, ct, d in slide_tuples]
+    context_data_urls = [config.to_data_url(ct, d) for _, ct, d in context_tuples]
 
-    # 5a. Extraer títulos de slides (llamada ligera previa al análisis principal)
+    # 5. Ejecutar el pipeline LangGraph
     try:
-        slide_titles = extract_slide_titles(slide_blocks)
-    except Exception:
-        slide_titles = [f"Slide {i + 1}" for i in range(len(slide_tuples))]
-
-    # 5b. Llamar al modelo principal con títulos como contexto adicional
-    try:
-        output_text = analyze_slides(
-            contexto=contexto,
-            image_blocks=all_image_blocks,
-            pdf_text=pdf_text,
-            slide_titles=slide_titles,
-        )
+        result = analysis_pipeline.invoke({
+            "provider":          active_provider,
+            "openai_model":      openai_model or None,
+            "gemini_model":      gemini_model or None,
+            "contexto":          contexto,
+            "slide_data_urls":   slide_data_urls,
+            "context_data_urls": context_data_urls,
+            "pdf_text":          pdf_text,
+            "slide_titles":      [],
+            "output_text":       "",
+        })
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al llamado del modelo: {e}")
+        raise HTTPException(status_code=500, detail=f"Error en el pipeline de análisis: {e}")
+
+    output_text  = result["output_text"]
+    slide_titles = result["slide_titles"]
 
     # 6. Guardar análisis en MongoDB
     analysis_doc = AnalysisDoc(
@@ -193,7 +190,9 @@ async def analyze(
     await analysis_doc.insert()
 
     return {
-        "output_text": output_text,
-        "analysis_id": str(analysis_doc.id),
+        "output_text":  output_text,
+        "analysis_id":  str(analysis_doc.id),
         "slide_titles": slide_titles,
+        "provider":     active_provider,
+        "model":        (gemini_model or config.GEMINI_MODEL) if active_provider == "gemini" else (openai_model or config.OPENAI_MODEL),
     }

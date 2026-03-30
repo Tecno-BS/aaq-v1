@@ -49,3 +49,8 @@ Thumbs.db
 # ─── Logs ────────────────────────────────────────────────────────────────────
 *.log
 logs/
+
+# ─── Credenciales de servicios en la nube (GCP, AWS, etc.) ───────────────────
+*-gcp.json
+*-sa.json
+service_account*.json

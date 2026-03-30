@@ -1,8 +1,13 @@
-import json
-import re
-from typing import List, Dict, Any, Optional
+"""
+Utilidades de construcción de prompts.
 
-import config
+Las funciones de llamada al modelo (analyze_slides, extract_slide_titles)
+fueron migradas a services/analysis_graph.py como nodos de LangGraph.
+Este módulo conserva únicamente los helpers de texto que son independientes
+del proveedor LLM.
+"""
+
+from typing import Dict, List, Optional
 
 QUESTION_TEXTS = {
     "q0":  "0. ¿Cuál es el perfil o rol que debo adoptar?",
@@ -18,75 +23,21 @@ QUESTION_TEXTS = {
     "q10": "10. ¿Existe un estudio cualitativo anterior?",
 }
 
-QUESTION_ORDER = ["q0","q1","q2","q3","q4","q5","q6","q7","q8","q9","q10"]
+QUESTION_ORDER = ["q0", "q1", "q2", "q3", "q4", "q5", "q6", "q7", "q8", "q9", "q10"]
 
-
-# ─── Extracción de títulos de slides ─────────────────────────────────────────
-
-def extract_slide_titles(slide_blocks: List[Dict[str, Any]]) -> List[str]:
-    """
-    Llama al modelo para identificar el título principal de cada diapositiva.
-    Devuelve lista de títulos en el mismo orden que slide_blocks.
-    Si falla o el JSON es inválido, devuelve ["Slide 1", "Slide 2", ...].
-    """
-    n = len(slide_blocks)
-    fallback = [f"Slide {i + 1}" for i in range(n)]
-
-    if n == 0:
-        return []
-
-    try:
-        prompt = (
-            f"Se te muestran {n} diapositiva(s). "
-            "Identifica el título o encabezado principal de cada una, "
-            "en el mismo orden en que aparecen. "
-            "Responde ÚNICAMENTE con un array JSON válido de strings, sin explicación ni código. "
-            f'Ejemplo para {n} slides: '
-            + json.dumps([f"Título de la diapositiva {i+1}" for i in range(min(n, 3))]) +
-            ". Si una diapositiva no tiene título visible, describe su contenido en máximo 6 palabras."
-        )
-
-        content = [*slide_blocks, {"type": "input_text", "text": prompt}]
-
-        resp = config.client.responses.create(
-            model=config.OPENAI_MODEL,
-            instructions=(
-                "Eres un extractor de títulos de diapositivas. "
-                "Responde siempre con un array JSON de strings y nada más."
-            ),
-            input=[{"role": "user", "content": content}],
-        )
-
-        raw = resp.output_text.strip()
-        # Quitar posibles bloques de código markdown
-        raw = re.sub(r"^```(?:json)?\s*", "", raw)
-        raw = re.sub(r"\s*```$", "", raw)
-
-        titles = json.loads(raw)
-
-        if not isinstance(titles, list):
-            return fallback
-
-        # Ajustar longitud si el modelo devuelve más o menos
-        result = [str(t).strip() for t in titles[:n]]
-        while len(result) < n:
-            result.append(f"Slide {len(result) + 1}")
-        return result
-
-    except Exception:
-        return fallback
-
-
-# ─── Construcción del prompt principal ───────────────────────────────────────
 
 def build_user_text(
     contexto: Dict[str, str],
     pdf_text: Optional[str],
     slide_titles: Optional[List[str]] = None,
 ) -> str:
+    """
+    Construye el bloque de texto del usuario para el análisis principal.
+    Es independiente del proveedor LLM.
+    """
     partes = []
     for qid in QUESTION_ORDER:
-        pregunta = QUESTION_TEXTS.get(qid, qid)
+        pregunta  = QUESTION_TEXTS.get(qid, qid)
         respuesta = (contexto.get(qid) or "").strip()
         partes.append(f"{pregunta}\n{respuesta}")
 
@@ -100,7 +51,6 @@ def build_user_text(
             "--- FIN DEL ESTUDIO CUALITATIVO ---"
         )
 
-    # Inyectar índice de slides con sus títulos identificados
     slides_section = ""
     if slide_titles:
         slides_list = "\n".join(
@@ -111,7 +61,6 @@ def build_user_text(
             f"{slides_list}"
         )
 
-    # Instrucción de salida ajustada para usar "Slide N — Título"
     slide_ref = (
         "el formato 'Slide N — [título]' según el índice anterior "
         "(ej: 'Slide 1 — Metodología'). Usa siempre número Y nombre."
@@ -133,21 +82,3 @@ def build_user_text(
         "- Luego: resumen ejecutivo (3 hallazgos clave).\n"
         "- Luego: tabla ejecutiva de recomendaciones (por slide y generales).\n"
     )
-
-
-def analyze_slides(
-    contexto: Dict[str, str],
-    image_blocks: List[Dict[str, Any]],
-    pdf_text: Optional[str] = None,
-    slide_titles: Optional[List[str]] = None,
-) -> str:
-    user_text = build_user_text(contexto, pdf_text, slide_titles)
-    content = [{"type": "input_text", "text": user_text}, *image_blocks]
-
-    resp = config.client.responses.create(
-        model=config.OPENAI_MODEL,
-        instructions=config.SYSTEM_INSTRUCTIONS,
-        input=[{"role": "user", "content": content}],
-    )
-
-    return resp.output_text

@@ -19,12 +19,33 @@ const EMPTY_ANSWERS = () => {
   return init;
 };
 
+const LLM_PROVIDERS = [
+  { id: "openai",  label: "GPT · OpenAI" },
+  { id: "gemini",  label: "Gemini · Google" },
+];
+
+const OPENAI_MODELS = [
+  { id: "gpt-4.1", label: "GPT-4.1" },
+  { id: "gpt-4o",  label: "GPT-4o"  },
+  { id: "gpt-5",   label: "GPT-5"   },
+];
+
+const GEMINI_MODELS = [
+  { id: "gemini-2.5-flash",       label: "2.5 Flash"       },
+  { id: "gemini-2.5-pro",         label: "2.5 Pro"         },
+  { id: "gemini-3-flash-preview", label: "3 Flash Preview" },
+  { id: "gemini-3-pro-preview",   label: "3 Pro Preview"   },
+];
+
 export function AnalysisView({ project }) {
   const [answers, setAnswers] = useState(EMPTY_ANSWERS);
   const [hasPreviousStudy, setHasPreviousStudy] = useState(null);
   const [studyPdf, setStudyPdf] = useState(null);
   const [contextImages, setContextImages] = useState([]);
   const [slideFiles, setSlideFiles] = useState([]);
+  const [provider, setProvider] = useState("openai");
+  const [openaiModel, setOpenaiModel] = useState("gpt-4o");
+  const [geminiModel, setGeminiModel] = useState("gemini-2.5-pro");
 
   // Historial de análisis del proyecto
   const [analyses, setAnalyses] = useState([]);
@@ -115,6 +136,9 @@ export function AnalysisView({ project }) {
       const fd = new FormData();
       fd.append("project_id", project.id);
       fd.append("contexto_json", JSON.stringify(fullAnswers));
+      fd.append("provider", provider);
+      if (provider === "openai") fd.append("openai_model", openaiModel);
+      if (provider === "gemini") fd.append("gemini_model", geminiModel);
       for (const f of contextImages) fd.append("context_images", f);
       for (const f of slideFiles) fd.append("images", f);
       if (hasPreviousStudy === "yes" && studyPdf) fd.append("study_pdf", studyPdf);
@@ -197,6 +221,54 @@ export function AnalysisView({ project }) {
             </span>
             Imágenes
           </h2>
+          <div className="provider-selectors">
+            <div className="provider-toggle">
+              {LLM_PROVIDERS.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  className={`provider-option${provider === p.id ? " active" : ""}`}
+                  onClick={() => setProvider(p.id)}
+                  disabled={loading}
+                  title={`Usar ${p.label} para el análisis`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+            {provider === "openai" && (
+              <div className="provider-toggle">
+                {OPENAI_MODELS.map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    className={`provider-option provider-option-sm${openaiModel === m.id ? " active" : ""}`}
+                    onClick={() => setOpenaiModel(m.id)}
+                    disabled={loading}
+                    title={`Usar modelo ${m.label}`}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+            )}
+            {provider === "gemini" && (
+              <div className="provider-toggle">
+                {GEMINI_MODELS.map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    className={`provider-option provider-option-sm${geminiModel === m.id ? " active" : ""}`}
+                    onClick={() => setGeminiModel(m.id)}
+                    disabled={loading}
+                    title={`Usar modelo ${m.label}`}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <button type="submit" className="btn-primary" disabled={!canSubmit} data-testid="btn-analizar">
             {loading
               ? <><span className="spinner" /> Analizando…</>
