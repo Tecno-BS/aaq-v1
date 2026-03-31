@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { ClipboardList, Images, History, Zap, RotateCcw } from "lucide-react";
+import { ClipboardList, Images, History, Zap, RotateCcw, ChevronDown, Check } from "lucide-react";
+import { SiOpenai, SiGooglegemini } from "react-icons/si";
 import { QUESTIONS } from "../constants/questions";
 import { ContextWizard } from "../components/ContextWizard";
 import { ImagesPanel } from "../components/ImagesPanel";
@@ -19,11 +20,6 @@ const EMPTY_ANSWERS = () => {
   return init;
 };
 
-const LLM_PROVIDERS = [
-  { id: "openai",  label: "GPT · OpenAI" },
-  { id: "gemini",  label: "Gemini · Google" },
-];
-
 const OPENAI_MODELS = [
   { id: "gpt-4.1", label: "GPT-4.1" },
   { id: "gpt-4o",  label: "GPT-4o"  },
@@ -36,6 +32,102 @@ const GEMINI_MODELS = [
   { id: "gemini-3-flash-preview", label: "3 Flash Preview" },
   { id: "gemini-3-pro-preview",   label: "3 Pro Preview"   },
 ];
+
+function OpenAILogo({ size = 16 }) {
+  return (
+    <span className="ms-brand-icon ms-brand-openai" style={{ width: size, height: size }}>
+      <SiOpenai size={size * 0.62} />
+    </span>
+  );
+}
+
+function GeminiLogo({ size = 16 }) {
+  return (
+    <span className="ms-brand-icon ms-brand-gemini" style={{ width: size, height: size }}>
+      <SiGooglegemini size={size * 0.62} />
+    </span>
+  );
+}
+
+function ModelSelector({ provider, setProvider, openaiModel, setOpenaiModel, geminiModel, setGeminiModel, disabled }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [open]);
+
+  const currentLabel = provider === "openai"
+    ? (OPENAI_MODELS.find(m => m.id === openaiModel)?.label ?? openaiModel)
+    : (GEMINI_MODELS.find(m => m.id === geminiModel)?.label ?? geminiModel);
+
+  return (
+    <div className="ms-root" ref={ref}>
+      <button
+        type="button"
+        className="ms-trigger"
+        onClick={() => setOpen(v => !v)}
+        disabled={disabled}
+        title="Cambiar modelo de IA"
+      >
+        {provider === "openai" ? <OpenAILogo size={15} /> : <GeminiLogo size={15} />}
+        <span className="ms-label">{currentLabel}</span>
+        <ChevronDown size={11} strokeWidth={2.5} className={`ms-chevron${open ? " ms-chevron-open" : ""}`} />
+      </button>
+
+      {open && (
+        <div className="ms-dropdown">
+          <div className="ms-section">
+            <div className="ms-section-header">
+              <OpenAILogo size={13} />
+              <span>OpenAI</span>
+            </div>
+            {OPENAI_MODELS.map(m => {
+              const active = provider === "openai" && openaiModel === m.id;
+              return (
+                <button
+                  key={m.id}
+                  type="button"
+                  className={`ms-option${active ? " ms-option-active" : ""}`}
+                  onClick={() => { setProvider("openai"); setOpenaiModel(m.id); setOpen(false); }}
+                >
+                  <span>{m.label}</span>
+                  {active && <Check size={11} strokeWidth={2.5} />}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="ms-divider" />
+
+          <div className="ms-section">
+            <div className="ms-section-header">
+              <GeminiLogo size={13} />
+              <span>Google Gemini</span>
+            </div>
+            {GEMINI_MODELS.map(m => {
+              const active = provider === "gemini" && geminiModel === m.id;
+              return (
+                <button
+                  key={m.id}
+                  type="button"
+                  className={`ms-option${active ? " ms-option-active" : ""}`}
+                  onClick={() => { setProvider("gemini"); setGeminiModel(m.id); setOpen(false); }}
+                >
+                  <span>{m.label}</span>
+                  {active && <Check size={11} strokeWidth={2.5} />}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function AnalysisView({ project }) {
   const [answers, setAnswers] = useState(EMPTY_ANSWERS);
@@ -221,54 +313,15 @@ export function AnalysisView({ project }) {
             </span>
             Imágenes
           </h2>
-          <div className="provider-selectors">
-            <div className="provider-toggle">
-              {LLM_PROVIDERS.map((p) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  className={`provider-option${provider === p.id ? " active" : ""}`}
-                  onClick={() => setProvider(p.id)}
-                  disabled={loading}
-                  title={`Usar ${p.label} para el análisis`}
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
-            {provider === "openai" && (
-              <div className="provider-toggle">
-                {OPENAI_MODELS.map((m) => (
-                  <button
-                    key={m.id}
-                    type="button"
-                    className={`provider-option provider-option-sm${openaiModel === m.id ? " active" : ""}`}
-                    onClick={() => setOpenaiModel(m.id)}
-                    disabled={loading}
-                    title={`Usar modelo ${m.label}`}
-                  >
-                    {m.label}
-                  </button>
-                ))}
-              </div>
-            )}
-            {provider === "gemini" && (
-              <div className="provider-toggle">
-                {GEMINI_MODELS.map((m) => (
-                  <button
-                    key={m.id}
-                    type="button"
-                    className={`provider-option provider-option-sm${geminiModel === m.id ? " active" : ""}`}
-                    onClick={() => setGeminiModel(m.id)}
-                    disabled={loading}
-                    title={`Usar modelo ${m.label}`}
-                  >
-                    {m.label}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+          <ModelSelector
+            provider={provider}
+            setProvider={setProvider}
+            openaiModel={openaiModel}
+            setOpenaiModel={setOpenaiModel}
+            geminiModel={geminiModel}
+            setGeminiModel={setGeminiModel}
+            disabled={loading}
+          />
           <button type="submit" className="btn-primary" disabled={!canSubmit} data-testid="btn-analizar">
             {loading
               ? <><span className="spinner" /> Analizando…</>
